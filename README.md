@@ -28,5 +28,5 @@ CHANNEL - link of public channel without https://t.me/
 ```
 
 ## Deploy
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Jess0032/7z-Manager-ok)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Jess0032/my7z-Manager-ok)
 
