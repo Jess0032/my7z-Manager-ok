@@ -1,0 +1,43 @@
+{
+  "name": "MergeBot",
+  "description": "A simple telegram bot that takes a list of files sent by the user and returns them 7zipped or merged",
+  "keywords": [
+    "merge",
+    "telethon",
+    "zip",
+    "bot",
+    "telegram"
+  ],
+  "stack": "container",
+  "repository": "https://github.com/Jess0032/MergeBot/",
+  "success_url": "/welcome",
+  "env": {
+     "BOT_TOKEN": {
+        "description": "Make a bot from https://t.me/BotFather and enter the token here.",
+        "value": ""
+      },
+      "API_ID": {
+        "description": "Get this value from https://my.telegram.org/apps",
+        "value": "" 
+      },
+      "MESSAGE_CHANNEL_ID": {
+        "description": "id of your telegram CHANNEL",
+        "value": ""   
+      },
+      "CHANNEL": {
+        "description": "id of your telegram CHANNEL without @ or t.me/",
+        "value": ""   
+      },
+      "API_HASH": {
+        "description": "Get this value from https://my.telegram.org/apps",
+        "value": ""
+      }
+  },
+  "formation": {
+      "worker": {
+        "quantity": 1,
+        "size": "free"
+      }
+    },
+  "image": "heroku/python"
+}
