@@ -214,7 +214,7 @@ async def upload_file(user_id: str, file: str, progress_message: Message):
 
 async def progress_bar(current, total, status_msg, start, msg, filename):
     present = time.time()
-    if round((present - start) % 3) == 0 or current == total:
+    if round((present - start) % 15) == 0 or current == total:
         speed = current / (present - start)
         percentage = current * 100 / total
         time_to_complete = round(((total - current) / speed))
