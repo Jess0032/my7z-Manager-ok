@@ -1,5 +1,5 @@
-pyrotgfork~=2.1.33.3
-pyTgCrypto~=1.2.7
+pyrofork~=2.3.40
+TgCrypto-pyrofork~=1.2.6
 multivolumefile~=0.2.3
 py7zr~=0.18.9
 pyromod~=1.5
