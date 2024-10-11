@@ -9,6 +9,9 @@ A simple telegram bot that takes a list of files sent by the user and returns th
 start - Fast help of Bot 😎
 list - list of files to merge / compress
 compress - compress files (optional specify part size in MB)
+download - download direct links and add to List
+rename - rename files from list by number id
+link - generarte direct download link by reply to file on Telegram
 clear - Clear the file list
 merge - Merge files (txt and pdf for now)
 cache_folder - show folder cache
