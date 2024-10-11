@@ -395,7 +395,7 @@ async def upload_file(user_id: str, file: pathlib.Path, progress_message: Messag
 
 async def progress_bar(current, total, status_msg, start, msg, filename):
     present = time.time()
-    if round((present - start) % 5) == 0 or current == total:
+    if round((present - start) % 20) == 0 or current == total:
         speed = current / (present - start) if present - start > 0 else 0
         percentage = current * 100 / total if total > 0 else 0
         time_to_complete = round(((total - current) / speed)) if speed > 0 else 0
