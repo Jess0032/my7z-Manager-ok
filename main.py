@@ -302,9 +302,8 @@ async def generate_link(client: Client, message: Message):
             await progress_msg.edit_text(f"Failed to download file: {str(e)}")
             return
 
-    # Generate the local file link
-    relative_filepath = filepath.relative_to(pathlib.Path.cwd())
-    file_url = f"http://{get_local_ip()}:8000/{relative_filepath.as_posix()}"
+    # Instead of using relative_to, construct the link directly
+    file_url = f"http://{get_local_ip()}:{8000}/{filepath.as_posix()}"
     await message.reply_text(f"Here is your download link:\n{file_url}")
 
 # Entry point for the bot
