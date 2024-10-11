@@ -9,45 +9,44 @@ import datetime as dt
 import humanize
 from typing import Dict
 import pyrogram.errors
-from humanize import naturalsize
 from pyromod import listen
 from pyrogram import Client, filters, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socket
-import aiohttp  # Import aiohttp for HTTP requests
+import threading
+import aiohttp  # for HTTP requests
 
-# Replace with your actual API credentials
+# Constants for environment variables
 API_ID: int = int(os.environ.get("API_ID"))
 API_HASH: str = os.environ.get("API_HASH")
 BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
 
-bot = Client("my_bot", api_hash=API_HASH, api_id=API_ID, bot_token=BOT_TOKEN)
+bot = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-users_list = {}  # user_id: {message_id: {'mime_type': ..., 'filename': ...}}
-empty_list = "📝 Still no files to compress."
-users_in_channel: Dict[int, dt.datetime] = dict()
+# Global variables
+users_list: Dict[int, Dict] = {}
+empty_list_msg = "📝 Still no files to compress."
+users_in_channel: Dict[int, dt.datetime] = {}
 
+# Utility function to check if user list is empty
+def is_empty(user_id: int) -> bool:
+    return user_id not in users_list or not users_list[user_id]
 
-# Start HTTP server for /link command
+# Start an HTTP server in the background for handling download links
 def start_http_server():
-    server_address = ("", 8000)  # Listen on all interfaces, port 8000
+    server_address = ("", 8000)
     httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
     httpd.serve_forever()
 
+# Start HTTP server in a separate thread
+threading.Thread(target=start_http_server, daemon=True).start()
 
-# Start the HTTP server in a separate thread
-http_thread = threading.Thread(target=start_http_server)
-http_thread.daemon = True
-http_thread.start()
-
-
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# Get the local IP address for link generation
+def get_local_ip() -> str:
     try:
-        # Doesn't have to be reachable
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         IP = s.getsockname()[0]
     except Exception:
@@ -56,486 +55,262 @@ def get_local_ip():
         s.close()
     return IP
 
-
-def is_empty(user_id: str):
-    return user_id not in users_list or not users_list[user_id]
-
-
-@bot.on_message(filters=~(filters.private & filters.incoming))
-async def on_chat_or_channel_message(client: Client, message: Message):
-    pass
-
-
-@bot.on_message()
-async def on_private_message(client: Client, message: Message):
-    channel = os.environ.get("CHANNEL", None)
-    if not channel:
-        return message.continue_propagation()
-    if in_channel_cached := users_in_channel.get(message.from_user.id):
-        if dt.datetime.now() - in_channel_cached < dt.timedelta(days=1):
-            return message.continue_propagation()
-    try:
-        if await client.get_chat_member(channel, message.from_user.id):
-            users_in_channel[message.from_user.id] = dt.datetime.now()
-            return message.continue_propagation()
-    except pyrogram.errors.UsernameNotOccupied:
-        print("Channel does not exist, bot will continue to operate normally")
-        return message.continue_propagation()
-    except pyrogram.errors.ChatAdminRequired:
-        print("Bot is not admin of the channel, bot will continue to operate normally")
-        return message.continue_propagation()
-    except pyrogram.errors.UserNotParticipant:
-        await message.reply(
-            "In order to use the bot, you must join its update channel.",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Join!", url=f"t.me/{channel}")]]
-            ),
-        )
-
-
-@bot.on_message(filters.video | filters.document | filters.audio)
-async def filter_files(client, message):
-    user_id = message.from_user.id
-    media = getattr(message, message.media.value)
-    mime_type = media.mime_type
-    filename = (
-        media.file_name
-        or f"{media.file_unique_id}{mimetypes.guess_extension(mime_type) or ''}"
-    )
-
-    if user_id in users_list:
-        users_list[user_id][message.id] = {"mime_type": mime_type, "filename": filename}
-    else:
-        users_list[user_id] = {
-            message.id: {"mime_type": mime_type, "filename": filename}
-        }
-
-
+# Command: /start
 @bot.on_message(filters.command("start"))
-async def start_command(client, message):
-    text_to_send = """
-Forward all the files you want to the bot and when you are ready to compress them send /compress
-Specify the maximum size in MB of the zip or not if you don't want limits. Ex: __/compress 10__
-To see the list of files to compress send /list and to clear the list to compress send /clear
-Use /download <URL> to download a file from the internet.
-Use /rename to rename a file in your list.
-"""
-    await message.reply_text(text_to_send)
-
-
-@bot.on_message(filters.command("list"))
-async def get_list(client, message):
-    user_id = message.from_user.id
-    if is_empty(user_id):
-        text_to_send = empty_list
-    else:
-        text_to_send = "📝 List of files to compress by type:\n"
-        for idx, (message_id, file_info) in enumerate(
-            users_list[user_id].items(), start=1
-        ):
-            filename = file_info["filename"]
-            mime_type = file_info["mime_type"]
-            new_line = f"**{idx}. {filename}** : **{mime_type}**\n"
-
-            if len(text_to_send + new_line) > 4096:
-                await message.reply_text(text_to_send)
-                text_to_send = new_line
-            else:
-                text_to_send += new_line
-
-    await message.reply_text(text_to_send)
-
-
-@bot.on_message(filters.command("clear"))
-async def clear_list(client, message):
-    users_list[message.from_user.id] = {}
-    await message.reply_text("📝 List cleared.")
-
-
-@bot.on_message(filters.command("cache_folder"))
-async def show_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{message.from_user.id}/")
-    text = "📝 Temporary file list:\n"
-    if dirpath.exists():
-        for i, file in enumerate(sorted(dirpath.rglob("*.*"))):
-            text += f"\n◾:{i}- **{file.name}** size: **{naturalsize(file.stat().st_size)}**"
-        text += "\n\nUse **/clear_cache_folder** to remove them or **/compress** to retry compressing them."
-    else:
-        text += "Your temporary folder is empty."
+async def start_command(client: Client, message: Message):
+    text = (
+        "Forward files to the bot and use /compress to compress them.\n"
+        "You can specify a size limit (in MB) for compression.\n"
+        "Commands:\n"
+        "/compress <size> - Compress files.\n"
+        "/list - Show the list of files.\n"
+        "/clear - Clear the file list.\n"
+        "/download <URL> - Download a file from a URL.\n"
+        "/rename - Rename a file.\n"
+        "/link - Generate a download link for a file."
+    )
     await message.reply_text(text)
 
-
-@bot.on_message(filters.command("clear_cache_folder"))
-async def clear_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{message.from_user.id}/")
-    if dirpath.exists():
-        size = sum(file.stat().st_size for file in dirpath.rglob("*.*"))
-        shutil.rmtree(str(dirpath.absolute()))
-        await message.reply_text(
-            f"Successfully deleted files. Freed up {naturalsize(size)}."
-        )
-    else:
-        await message.reply_text(f"Your temporary folder is empty.")
-
-
-@bot.on_message(filters.command("rename"))
-async def rename_file(client, message):
+# Command: /list - List files
+@bot.on_message(filters.command("list"))
+async def get_list(client: Client, message: Message):
     user_id = message.from_user.id
     if is_empty(user_id):
-        await message.reply_text("Your file list is empty.")
+        await message.reply_text(empty_list_msg)
         return
 
-    # Display the list of files with indices
-    file_list = users_list[user_id]
-    file_options = ""
-    for idx, (msg_id, file_info) in enumerate(file_list.items(), start=1):
-        file_options += f"{idx}. {file_info['filename']}\n"
+    file_list_msg = "📝 List of files to compress:\n"
+    for idx, (msg_id, file_info) in enumerate(users_list[user_id].items(), start=1):
+        file_name, mime_type = file_info['filename'], file_info['mime_type']
+        new_line = f"{idx}. {file_name} ({mime_type})\n"
+        if len(file_list_msg + new_line) > 4096:  # Telegram message size limit
+            await message.reply_text(file_list_msg)
+            file_list_msg = new_line
+        else:
+            file_list_msg += new_line
 
-    prompt_message = await message.reply_text(
-        f"Select the file number to rename:\n{file_options}"
-    )
-    response = await client.listen(user_id, filters=filters.text)
-    await prompt_message.delete()
-    await response.delete()
+    await message.reply_text(file_list_msg)
 
-    try:
-        selected_idx = int(response.text.strip())
-    except ValueError:
-        await message.reply_text("Invalid input. Please enter a number.")
-        return
+# Command: /clear - Clear file list
+@bot.on_message(filters.command("clear"))
+async def clear_list(client: Client, message: Message):
+    user_id = message.from_user.id
+    users_list[user_id] = {}
+    await message.reply_text("📝 List cleared.")
 
-    if selected_idx < 1 or selected_idx > len(file_list):
-        await message.reply_text("Invalid selection.")
-        return
-
-    # Get the selected file
-    selected_msg_id = list(file_list.keys())[selected_idx - 1]
-    selected_file_info = file_list[selected_msg_id]
-    old_filename = selected_file_info["filename"]
-
-    # Ask for the new filename
-    prompt_message = await message.reply_text(
-        f"Enter the new name for **{old_filename}** (include the extension):"
-    )
-    response = await client.listen(user_id, filters=filters.text)
-    await prompt_message.delete()
-    await response.delete()
-    new_filename = response.text.strip()
-
-    # Update the filename
-    users_list[user_id][selected_msg_id]["filename"] = new_filename
-    await message.reply_text(f"File renamed to **{new_filename}**.")
-
-
+# Command: /download - Download a file from a URL
 @bot.on_message(filters.command("download"))
-async def download_from_url(client, message):
+async def download_from_url(client: Client, message: Message):
     user_id = message.from_user.id
     args = message.text.split(maxsplit=1)
+
     if len(args) < 2:
-        await message.reply_text(
-            "Please provide a URL to download.\nUsage: `/download <URL>`")
+        await message.reply_text("Please provide a valid URL.\nUsage: `/download <URL>`")
         return
 
-    url = args[1].strip()
-
-    # Validate URL
+    url = args[1]
     if not url.startswith(("http://", "https://")):
-        await message.reply_text("Invalid URL provided.")
+        await message.reply_text("Invalid URL. Must start with http:// or https://")
         return
 
-    # Ask for the filename
-    prompt_message = await message.reply_text(
-        "Enter the filename to save as (include the extension):"
-    )
-    response = await client.listen(user_id, filters=filters.text)
-    await prompt_message.delete()
-    await response.delete()
-    filename = response.text.strip()
+    # Ask for the filename to save as
+    prompt_msg = await message.reply_text("Enter the filename to save the file as (including extension):")
+    filename_response = await client.listen(user_id, filters=filters.text)
+    filename = filename_response.text.strip()
 
     dirpath = pathlib.Path(f"{user_id}/files")
     dirpath.mkdir(parents=True, exist_ok=True)
     filepath = dirpath / filename
 
-    progress_message = await message.reply_text("Starting download...")
+    progress_msg = await message.reply_text("Downloading file...")
 
     try:
         start_time = time.time()
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    await progress_message.edit_text(
-                        f"Failed to download the file. HTTP Status: {resp.status}"
-                    )
+            async with session.get(url) as response:
+                if response.status != 200:
+                    await progress_msg.edit_text(f"Failed to download the file. HTTP Status: {response.status}")
                     return
 
-                total_size = int(resp.headers.get("content-length", 0))
-                downloaded = 0
-                chunk_size = 1024 * 1024  # 1 MB chunks
+                total_size = int(response.headers.get("Content-Length", 0))
                 with open(filepath, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(chunk_size):
+                    downloaded = 0
+                    async for chunk in response.content.iter_chunked(1024 * 1024):  # 1 MB chunks
                         f.write(chunk)
                         downloaded += len(chunk)
-                        await progress_bar(
-                            downloaded,
-                            total_size,
-                            "📥 Downloading:",
-                            start_time,
-                            progress_message,
-                            filename,
+                        await update_progress_bar(
+                            downloaded, total_size, "📥 Downloading", start_time, progress_msg, filename
                         )
-        await progress_message.delete()
+        await progress_msg.delete()
 
-        # Add to user's file list
-        mime_type = resp.headers.get("Content-Type", "application/octet-stream")
+        # Add downloaded file to user's list
+        mime_type = response.headers.get("Content-Type", "application/octet-stream")
         if user_id in users_list:
-            users_list[user_id][message.id] = {
-                "mime_type": mime_type,
-                "filename": filename,
-            }
+            users_list[user_id][message.id] = {"mime_type": mime_type, "filename": filename}
         else:
-            users_list[user_id] = {
-                message.id: {"mime_type": mime_type, "filename": filename}
-            }
+            users_list[user_id] = {message.id: {"mime_type": mime_type, "filename": filename}}
 
-        await message.reply_text(
-            f"Downloaded **{filename}** and added to your file list."
-        )
-
+        await message.reply_text(f"Downloaded and saved as **{filename}**.")
     except Exception as e:
-        await progress_message.edit_text(f"Failed to download the file: {str(e)}")
+        await progress_msg.edit_text(f"Error downloading the file: {str(e)}")
 
+# Progress bar updater
+async def update_progress_bar(current, total, status_msg, start, msg, filename):
+    elapsed_time = time.time() - start
+    percentage = current * 100 / total if total > 0 else 0
+    speed = current / elapsed_time if elapsed_time > 0 else 0
+    remaining_time = (total - current) / speed if speed > 0 else 0
+    progress_bar = "[" + "🟢" * (math.floor(percentage / 10)) + "⚫" * (10 - math.floor(percentage / 10)) + "]"
+    
+    current_status = (
+        f"**{status_msg} {filename}** {round(percentage, 2)}%\n"
+        f"{progress_bar}\n"
+        f"**Speed**: {humanize.naturalsize(speed)}/s\n"
+        f"**Downloaded**: {humanize.naturalsize(current)} / {humanize.naturalsize(total)}\n"
+        f"**Time Left**: {humanize.naturaldelta(remaining_time)}"
+    )
+    
+    try:
+        await msg.edit_text(current_status)
+    except pyrogram.errors.MessageNotModified:
+        pass
 
+# Command: /compress - Compress files
 @bot.on_message(filters.command("compress"))
-async def compress(client, message):
+async def compress(client: Client, message: Message):
     user_id = message.from_user.id
     if is_empty(user_id):
-        await message.reply_text(empty_list)
+        await message.reply_text(empty_list_msg)
         return
+
     dirpath = pathlib.Path(f"{user_id}/files")
-    size = None
+    size_limit = None
     args = message.text.strip().split()
     if len(args) > 1:
-        size = args[1]
-
-    file_name_message = await client.ask(
-        chat_id=message.from_user.id,
-        text="Send me the new filename for this task or send /cancel to stop.",
-        filters=filters.text,
-    )
-    await file_name_message.request.delete()
-    new_file_name = file_name_message.text
-    if new_file_name.lower() == "/cancel":
-        await message.delete()
-        return
-
-    password_message = await client.ask(
-        chat_id=message.from_user.id,
-        text="Send me the password 🔒 for this task or send **NO** if you don't want.",
-        filters=filters.text,
-    )
-    await password_message.request.delete()
-    password = password_message.text
-
-    if password.lower() == "no":
-        password = None
-
-    progress_download = await message.reply_text("Downloading 📥...")
-    inicial = dt.datetime.now()
-
-    for message_id in list(users_list[user_id].keys()):
-        message_obj: Message = await client.get_messages(user_id, message_id)
-        filename = users_list[user_id][message_id]["filename"]
-        await download_file(message_obj, dirpath, progress_download, filename)
-        users_list[user_id].pop(message_id)
-    await progress_download.delete()
-    await message.reply_text(
-        f"Downloads finished in 📥 {humanize.naturaldelta(dt.datetime.now() - inicial)}."
-    )
-    await message.reply_text("Compression started 🗜")
-    parts_path = zip_files(dirpath, size, new_file_name, password)
-    await message.reply_text("Compression finished 🗜")
-    progress_upload = await message.reply_text("Uploading 📤...")
-    inicial = dt.datetime.now()
-    for file in sorted(parts_path.iterdir()):
-        await upload_file(user_id, file, progress_upload)
-    shutil.rmtree(str(parts_path.absolute()))
-    await progress_upload.delete()
-    await message.reply_text(
-        f"Uploaded in 📤 {humanize.naturaldelta(dt.datetime.now() - inicial)}."
-    )
-
-
-async def download_file(
-    message: Message, dirpath: pathlib.Path, progress_message: Message, filename: str
-):
-    filepath = dirpath / filename
-    try:
-        start_time = time.time()
-        await message.download(
-            file_name=str(filepath),
-            progress=progress_bar,
-            progress_args=("📥 Downloading:", start_time, progress_message, filename),
-        )
-    except Exception as e:
-        print(e)
-
-
-async def upload_file(user_id: str, file: pathlib.Path, progress_message: Message):
-    try:
-        start_time = time.time()
-        await bot.send_document(
-            user_id,
-            str(file),
-            progress=progress_bar,
-            progress_args=("📤 Uploading:", start_time, progress_message, file.name),
-        )
-    except Exception as exc:
-        print(exc)
-
-
-async def progress_bar(current, total, status_msg, start, msg, filename):
-    present = time.time()
-    if round((present - start) % 5) == 0 or current == total:
-        speed = current / (present - start) if present - start > 0 else 0
-        percentage = current * 100 / total if total > 0 else 0
-        time_to_complete = round(((total - current) / speed)) if speed > 0 else 0
-        time_to_complete = humanize.naturaldelta(time_to_complete)
-        progressbar = "[{0}{1}]".format(
-            "".join(["🟢" for _ in range(math.floor(percentage / 10))]),
-            "".join(["⚫" for _ in range(10 - math.floor(percentage / 10))]),
-        )
-
-        current_message = f"""**{status_msg} {filename}** {round(percentage, 2)}%
-{progressbar}
-
-**⚡ Speed**: {humanize.naturalsize(speed)}/s
-**📚 Done**: {humanize.naturalsize(current)}
-**💾 Size**: {humanize.naturalsize(total)}
-**⏰ Time Left**: {time_to_complete}"""
         try:
-            await msg.edit_text(current_message)
-        except pyrogram.errors.MessageNotModified:
-            pass
+            size_limit = int(args[1])
+        except ValueError:
+            await message.reply_text("Invalid size limit. Please provide a valid integer.")
 
+    # Ask for a new file name
+    file_name_msg = await client.ask(user_id, "Enter the name for the compressed file (without extension):")
+    new_file_name = file_name_msg.text.strip()
 
-def zip_files(dirpath: pathlib.Path, size: str, new_file_name: str, password: str):
+    # Ask if a password should be added
+    password_msg = await client.ask(user_id, "Enter a password for the zip file, or send 'NO' if no password is required:")
+    password = password_msg.text.strip()
+    password = None if password.lower() == 'no' else password
+
+    await message.reply_text(f"Compressing files into {new_file_name}.zip...")
+
+    zip_dir = zip_files(dirpath, size_limit, new_file_name, password)
+    await message.reply_text("Compression complete!")
+
+    # Upload compressed files
+    await upload_files(user_id, zip_dir)
+
+# Helper function to zip files
+def zip_files(dirpath: pathlib.Path, size_limit: int, new_file_name: str, password: str):
     import zipfile
     from zipfile import ZipFile
 
-    # Calculate the size in bytes if size is provided
-    max_size = int(size) * 1024 * 1024 if size else None
-
+    # Create the output directory for the compressed file
     zip_dir = pathlib.Path(f"{dirpath.parent}/compressed")
     zip_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create a zip file
+    # Create the zip file
     zip_path = zip_dir / f"{new_file_name}.zip"
-
+    
     with ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        if password:
-            zipf.setpassword(password.encode())
         for file in dirpath.iterdir():
             zipf.write(file, arcname=file.name)
 
-    # Handle splitting the zip file if max_size is specified
-    if max_size and zip_path.stat().st_size > max_size:
-        parts = split_file(zip_path, max_size)
-        return parts
-    else:
-        return zip_dir
+    # If a password is provided, apply it (this requires a separate library like `pyminizip`)
+    if password:
+        import pyminizip
+        compressed_with_password = zip_dir / f"{new_file_name}_password_protected.zip"
+        pyminizip.compress(str(zip_path), None, str(compressed_with_password), password, 5)
+        zip_path.unlink()  # Remove the non-password protected version
+        return compressed_with_password
 
+    return zip_path
 
-def split_file(file_path: pathlib.Path, max_size: int):
-    parts_dir = file_path.parent / "parts"
-    parts_dir.mkdir(parents=True, exist_ok=True)
-    part_num = 1
-    with open(file_path, "rb") as f:
-        chunk = f.read(max_size)
-        while chunk:
-            part_path = parts_dir / f"{file_path.stem}.part{part_num}{file_path.suffix}"
-            with open(part_path, "wb") as part_file:
-                part_file.write(chunk)
-            part_num += 1
-            chunk = f.read(max_size)
-    return parts_dir
+# Function to upload files after compression
+async def upload_files(user_id: int, zip_dir: pathlib.Path):
+    progress_message = await bot.send_message(user_id, "📤 Uploading compressed files...")
+    
+    start_time = time.time()
+    for file in sorted(zip_dir.iterdir()):
+        try:
+            await bot.send_document(
+                chat_id=user_id,
+                document=str(file),
+                caption=f"Uploaded: {file.name}",
+                progress=update_progress_bar,
+                progress_args=("📤 Uploading", start_time, progress_message, file.name)
+            )
+        except Exception as e:
+            await bot.send_message(user_id, f"Failed to upload {file.name}: {str(e)}")
+    
+    shutil.rmtree(str(zip_dir))  # Clean up after upload
+    await progress_message.delete()
 
-
-async def start():
-    print("Bot is running...")
-    await bot.send_message(MESSAGE_CHANNEL_ID, "Bot has started.")
-
-
+# Command: /link - Generate a download link
 @bot.on_message(filters.command("link"))
-async def generate_link(client, message):
+async def generate_link(client: Client, message: Message):
     if not message.reply_to_message:
         await message.reply_text("Please reply to a file to generate a link.")
         return
 
     replied_message = message.reply_to_message
-    # Check if the message contains downloadable media
-    if not (
-        replied_message.document
-        or replied_message.video
-        or replied_message.audio
-        or replied_message.photo
-    ):
-        await message.reply_text(
-            "The replied message doesn't contain any downloadable media."
-        )
-        return
 
-    # Get the media object
+    # Check if the message contains media that can be downloaded
     media = None
     media_types = ["document", "video", "audio", "photo"]
     for media_type in media_types:
         media = getattr(replied_message, media_type, None)
-        if media is not None:
+        if media:
             break
 
-    if media is None:
-        await message.reply_text("No media found in the replied message.")
+    if not media:
+        await message.reply_text("No downloadable media found in the replied message.")
         return
 
     user_id = message.from_user.id
     dirpath = pathlib.Path(f"{user_id}/files")
     dirpath.mkdir(parents=True, exist_ok=True)
 
-    # Determine the filename
+    # Generate a file name
     if isinstance(media, pyrogram.types.Photo):
-        # Photos don't have file_name, so assign a default name
         filename = f"{media.file_unique_id}.jpg"
     else:
-        filename = (
-            media.file_name
-            or f"{media.file_unique_id}{mimetypes.guess_extension(media.mime_type) or ''}"
-        )
+        filename = media.file_name or f"{media.file_unique_id}{mimetypes.guess_extension(media.mime_type) or ''}"
 
     filepath = dirpath / filename
 
-    # Check if the file already exists
+    # Download the file if not already available locally
     if not filepath.exists():
-        progress_message = await message.reply_text("Downloading the file...")
+        progress_msg = await message.reply_text("📥 Downloading file...")
         try:
             await replied_message.download(
                 file_name=str(filepath),
-                progress=progress_bar,
-                progress_args=(
-                    "📥 Downloading:",
-                    time.time(),
-                    progress_message,
-                    filename,
-                ),
+                progress=update_progress_bar,
+                progress_args=("📥 Downloading", time.time(), progress_msg, filename)
             )
-            await progress_message.delete()
+            await progress_msg.delete()
         except Exception as e:
-            await progress_message.edit_text(f"Failed to download the file: {str(e)}")
+            await progress_msg.edit_text(f"Failed to download file: {str(e)}")
             return
 
-    # Generate the link
-    relative_filepath = filepath.resolve().relative_to(pathlib.Path.cwd().resolve())
-    file_url = f"http://{get_local_ip()}:{8000}/{relative_filepath.as_posix()}"
-    await message.reply_text(f"Here is your link:\n{file_url}")
+    # Generate the local file link
+    relative_filepath = filepath.relative_to(pathlib.Path.cwd())
+    file_url = f"http://{get_local_ip()}:8000/{relative_filepath.as_posix()}"
+    await message.reply_text(f"Here is your download link:\n{file_url}")
 
+# Entry point for the bot
+async def start():
+    print("Bot is running...")
+    await bot.send_message(MESSAGE_CHANNEL_ID, "Bot has started.")
 
 if __name__ == "__main__":
     bot.start()
