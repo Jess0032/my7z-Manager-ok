@@ -1,28 +1,30 @@
-import os
-import math
-import time
-import shutil
 import asyncio
-import mimetypes
-import pathlib
 import datetime as dt
-import humanize
+import math
+import mimetypes
+import os
+import pathlib
+import shutil
+import socket
+import threading
+import time
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict
+
+import aiohttp  # Import aiohttp for HTTP requests
+import humanize
 import pyrogram.errors
 from humanize import naturalsize
-from pyromod import listen
 from pyrogram import Client, filters, idle
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-import threading
-from http.server import HTTPServer, SimpleHTTPRequestHandler
-import socket
-import aiohttp  # Import aiohttp for HTTP requests
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from pyromod import listen
 
 # Replace with your actual API credentials
 API_ID: int = int(os.environ.get("API_ID"))
 API_HASH: str = os.environ.get("API_HASH")
 BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
 
 bot = Client("my_bot", api_hash=API_HASH, api_id=API_ID, bot_token=BOT_TOKEN)
 
@@ -33,7 +35,7 @@ users_in_channel: Dict[int, dt.datetime] = dict()
 
 # Start HTTP server for /link command
 def start_http_server():
-    server_address = ("", 8000)  # Listen on all interfaces, port 8000
+    server_address = ("", 80)  # Listen on all interfaces, port 80
     httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
     httpd.serve_forever()
 
@@ -397,7 +399,7 @@ async def upload_file(user_id: str, file: pathlib.Path, progress_message: Messag
 
 async def progress_bar(current, total, status_msg, start, msg, filename):
     present = time.time()
-    if round((present - start) % 5) == 0 or current == total:
+    if round((present - start) % 20) == 0 or current == total:
         speed = current / (present - start) if present - start > 0 else 0
         percentage = current * 100 / total if total > 0 else 0
         time_to_complete = round(((total - current) / speed)) if speed > 0 else 0
@@ -474,28 +476,19 @@ async def generate_link(client, message):
         return
 
     replied_message = message.reply_to_message
-    # Check if the message contains downloadable media
-    if not (
-        replied_message.document
-        or replied_message.video
-        or replied_message.audio
-        or replied_message.photo
-    ):
-        await message.reply_text(
-            "The replied message doesn't contain any downloadable media."
-        )
-        return
 
-    # Get the media object
-    media = None
+    # Check if the message contains downloadable media
     media_types = ["document", "video", "audio", "photo"]
+    media = None
     for media_type in media_types:
         media = getattr(replied_message, media_type, None)
         if media is not None:
             break
 
     if media is None:
-        await message.reply_text("No media found in the replied message.")
+        await message.reply_text(
+            "The replied message doesn't contain any downloadable media."
+        )
         return
 
     user_id = message.from_user.id
@@ -504,7 +497,6 @@ async def generate_link(client, message):
 
     # Determine the filename
     if isinstance(media, pyrogram.types.Photo):
-        # Photos don't have file_name, so assign a default name
         filename = f"{media.file_unique_id}.jpg"
     else:
         filename = (
@@ -534,8 +526,8 @@ async def generate_link(client, message):
             return
 
     # Generate the link
-    relative_filepath = filepath.resolve().relative_to(pathlib.Path.cwd().resolve())
-    file_url = f"http://{get_local_ip()}:{8000}/{relative_filepath.as_posix()}"
+    relative_filepath = filepath.relative_to(pathlib.Path.cwd())
+    file_url = f"{PUBLIC_URL}/{relative_filepath.as_posix()}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 
