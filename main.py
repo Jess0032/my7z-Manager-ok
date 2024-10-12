@@ -235,9 +235,7 @@ async def download_from_url(client, message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.reply_text(
-            "Please provide a URL to download.\nUsage: `/download <URL>`",
-            parse_mode="markdown",
-        )
+            "Please provide a URL to download.\nUsage: `/download <URL>`")
         return
 
     url = args[1].strip()
