@@ -26,6 +26,7 @@ API_ID - Get this value from https://my.telegram.org/apps
 API_HASH - Get this value from https://my.telegram.org/apps 
 MESSAGE_CHANNEL_ID - id of telegram channel add bot admin in this channel
 CHANNEL - link of public channel without https://t.me/
+PUBLIC_URL - Url or ip where is hosted the Bot.
 
 ```
 
