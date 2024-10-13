@@ -254,9 +254,9 @@ async def download_from_url(client, message):
     #await response.delete()
     #filename = response.text.strip()
 
-    #dirpath = pathlib.Path(f"{user_id}/files")
-    #dirpath.mkdir(parents=True, exist_ok=True)
-    #filepath = dirpath / filename
+    dirpath = pathlib.Path(f"{user_id}/files")
+    dirpath.mkdir(parents=True, exist_ok=True)
+    filepath = dirpath / filename
 
     progress_message = await message.reply_text("Starting download...")
 
