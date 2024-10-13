@@ -18,6 +18,7 @@ from humanize import naturalsize
 from pyrogram import Client, filters, idle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pyromod import listen
+from functions import *
 
 # Replace with your actual API credentials
 API_ID: int = int(os.environ.get("API_ID"))
