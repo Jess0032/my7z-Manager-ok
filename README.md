@@ -11,7 +11,6 @@ list - list of files to merge / compress
 compress - compress files (optional specify part size in MB)
 download - download direct links and add to List
 rename - rename files from list by number id
-link - generarte direct download link by reply to file on Telegram
 clear - Clear the file list
 merge - Merge files (txt and pdf for now)
 cache_folder - show folder cache
@@ -27,6 +26,7 @@ API_ID - Get this value from https://my.telegram.org/apps
 API_HASH - Get this value from https://my.telegram.org/apps 
 MESSAGE_CHANNEL_ID - id of telegram channel add bot admin in this channel
 CHANNEL - link of public channel without https://t.me/
+PUBLIC_URL - Url or ip where is hosted the Bot.
 
 ```
 
