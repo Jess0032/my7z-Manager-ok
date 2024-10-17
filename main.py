@@ -19,6 +19,8 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pyromod import listen
 
+from functions import zip_files
+
 # Replace with your actual API credentials
 API_ID: int = int(os.environ.get("API_ID"))
 API_HASH: str = os.environ.get("API_HASH")
@@ -235,7 +237,8 @@ async def download_from_url(client, message):
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.reply_text(
-            "Please provide a URL to download.\nUsage: `/download <URL>`")
+            "Please provide a URL to download.\nUsage: `/download <URL>`"
+        )
         return
 
     url = args[1].strip()
@@ -418,33 +421,6 @@ async def progress_bar(current, total, status_msg, start, msg, filename):
             await msg.edit_text(current_message)
         except pyrogram.errors.MessageNotModified:
             pass
-
-
-def zip_files(dirpath: pathlib.Path, size: str, new_file_name: str, password: str):
-    import zipfile
-    from zipfile import ZipFile
-
-    # Calculate the size in bytes if size is provided
-    max_size = int(size) * 1024 * 1024 if size else None
-
-    zip_dir = pathlib.Path(f"{dirpath.parent}/compressed")
-    zip_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create a zip file
-    zip_path = zip_dir / f"{new_file_name}.zip"
-
-    with ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        if password:
-            zipf.setpassword(password.encode())
-        for file in dirpath.iterdir():
-            zipf.write(file, arcname=file.name)
-
-    # Handle splitting the zip file if max_size is specified
-    if max_size and zip_path.stat().st_size > max_size:
-        parts = split_file(zip_path, max_size)
-        return parts
-    else:
-        return zip_dir
 
 
 def split_file(file_path: pathlib.Path, max_size: int):
