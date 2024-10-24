@@ -10,7 +10,7 @@ import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict
-
+from urllib.parse import urlparse, unquote
 import aiohttp  # Import aiohttp for HTTP requests
 import humanize
 import pyrogram.errors
@@ -249,18 +249,9 @@ async def download_from_url(client, message):
         await message.reply_text("Invalid URL provided.")
         return
 
-    # Ask for the filename
-    prompt_message = await message.reply_text(
-         "Enter the filename to save as (include the extension):"
-    )
-    response = await client.listen(user_id, filters=filters.text)
-    await prompt_message.delete()
-    await response.delete()
-    filename = response.text.strip()
-
     dirpath = pathlib.Path(f"{user_id}/files")
     dirpath.mkdir(parents=True, exist_ok=True)
-    filepath = dirpath / filename
+    
 
     progress_message = await message.reply_text("Starting download...")
 
@@ -273,7 +264,19 @@ async def download_from_url(client, message):
                         f"Failed to download the file. HTTP Status: {resp.status}"
                     )
                     return
+                
+                try: # Try to get the filename from the content-disposition header
+                    content_disposition = resp.headers.get('content-disposition')
+                    if content_disposition:
+                        filename = os.path.basename(content_disposition.split("filename*=UTF-8''")[1].strip().strip('"'))
+                    else:
+                        parsed_url = urlparse(url)
+                        path = unquote(parsed_url.path)
+                        filename = os.path.basename(path)
+                except:
+                    filename = os.path.basename(url.split("/")[-1].split("?")[0])
 
+                filepath = dirpath / filename
                 total_size = int(resp.headers.get("content-length", 0))
                 downloaded = 0
                 chunk_size = 1024 * 1024  # 1 MB chunks
@@ -501,8 +504,7 @@ async def generate_link(client, message):
             return
 
     # Generate the link
-    relative_filepath = filepath.relative_to(pathlib.Path.cwd())
-    file_url = f"{PUBLIC_URL}/{relative_filepath.as_posix()}"
+    file_url = f"{PUBLIC_URL}/{filepath.as_posix()}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 
