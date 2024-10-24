@@ -122,7 +122,6 @@ async def start_command(client, message):
 Forward all the files you want to the bot and when you are ready to compress them send /compress
 Specify the maximum size in MB of the zip or not if you don't want limits. Ex: __/compress 10__
 To see the list of files to compress send /list and to clear the list to compress send /clear
-Use /download <URL> to download a file from the internet.
 Use /rename to rename a file in your list.
 """
     await message.reply_text(text_to_send)
