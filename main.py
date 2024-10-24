@@ -29,6 +29,7 @@ API_HASH: str = os.environ.get("API_HASH")
 BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
+PORT: int = int(os.environ.get("PORT"))
 
 bot = Client("my_bot", api_hash=API_HASH, api_id=API_ID, bot_token=BOT_TOKEN)
 
@@ -39,7 +40,7 @@ users_in_channel: Dict[int, dt.datetime] = dict()
 
 # Start HTTP server for /link command
 def start_http_server():
-    server_address = ("", 8000)  # Listen on all interfaces, port 80
+    server_address = ("", PORT)  # Listen on all interfaces, port 80
     httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
     httpd.serve_forever()
 
