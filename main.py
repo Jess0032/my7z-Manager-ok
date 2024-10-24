@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+import functools
 import math
 import mimetypes
 import os
@@ -10,7 +11,8 @@ import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
+
 import aiohttp  # Import aiohttp for HTTP requests
 import humanize
 import pyrogram.errors
@@ -19,8 +21,9 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pyromod import listen
 
-
-from functions import zip_files
+from functions import (  # Ensure you have a 'functions.py' with 'zip_files' implemented
+    zip_files,
+)
 
 # Replace with your actual API credentials
 API_ID: int = int(os.environ.get("API_ID"))
@@ -28,7 +31,11 @@ API_HASH: str = os.environ.get("API_HASH")
 BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
-PORT: int = int(os.environ.get("PORT"))
+PORT: int = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
+
+# Define the directory to serve files from
+SERVE_DIRECTORY = pathlib.Path("public").absolute()
+SERVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 bot = Client("my_bot", api_hash=API_HASH, api_id=API_ID, bot_token=BOT_TOKEN)
 
@@ -37,10 +44,15 @@ empty_list = "📝 Still no files to compress."
 users_in_channel: Dict[int, dt.datetime] = dict()
 
 
-# Start HTTP server for /link command
 def start_http_server():
-    server_address = ("", PORT)  # Listen on all interfaces, port 80
-    httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+    server_address = ("", PORT)  # Listen on all interfaces, specified PORT
+
+    # Create a handler that serves files from the SERVE_DIRECTORY
+    handler_class = functools.partial(
+        SimpleHTTPRequestHandler, directory=str(SERVE_DIRECTORY)
+    )
+
+    httpd = HTTPServer(server_address, handler_class)
     httpd.serve_forever()
 
 
@@ -69,7 +81,7 @@ def is_empty(user_id: str):
 
 @bot.on_message(filters=~(filters.private & filters.incoming))
 async def on_chat_or_channel_message(client: Client, message: Message):
-    pass
+    pass  # Currently does nothing. You can implement logic if needed.
 
 
 @bot.on_message()
@@ -199,7 +211,12 @@ async def rename_file(client, message):
     prompt_message = await message.reply_text(
         f"Select the file number to rename:\n{file_options}"
     )
-    response = await client.listen(user_id, filters=filters.text)
+    try:
+        response = await client.listen(user_id, filters=filters.text, timeout=60)
+    except asyncio.TimeoutError:
+        await prompt_message.edit_text("No response received. Operation cancelled.")
+        return
+
     await prompt_message.delete()
     await response.delete()
 
@@ -222,7 +239,12 @@ async def rename_file(client, message):
     prompt_message = await message.reply_text(
         f"Enter the new name for **{old_filename}** (include the extension):"
     )
-    response = await client.listen(user_id, filters=filters.text)
+    try:
+        response = await client.listen(user_id, filters=filters.text, timeout=60)
+    except asyncio.TimeoutError:
+        await prompt_message.edit_text("No response received. Operation cancelled.")
+        return
+
     await prompt_message.delete()
     await response.delete()
     new_filename = response.text.strip()
@@ -249,8 +271,9 @@ async def download_from_url(client, message):
         await message.reply_text("Invalid URL provided.")
         return
 
-    dirpath = pathlib.Path(f"{user_id}/files")
-    dirpath.mkdir(parents=True, exist_ok=True)
+    # Define the directory within SERVE_DIRECTORY for the user
+    user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+    user_dir.mkdir(parents=True, exist_ok=True)
 
     progress_message = await message.reply_text("Starting download...")
 
@@ -279,7 +302,7 @@ async def download_from_url(client, message):
                 except:
                     filename = os.path.basename(url.split("/")[-1].split("?")[0])
 
-                filepath = dirpath / filename
+                filepath = user_dir / filename
                 total_size = int(resp.headers.get("content-length", 0))
                 downloaded = 0
                 chunk_size = 1024 * 1024  # 1 MB chunks
@@ -323,28 +346,49 @@ async def compress(client, message):
     if is_empty(user_id):
         await message.reply_text(empty_list)
         return
-    dirpath = pathlib.Path(f"{user_id}/files")
+    user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+    user_dir.mkdir(parents=True, exist_ok=True)
     size = None
     args = message.text.strip().split()
     if len(args) > 1:
-        size = args[1]
+        try:
+            size = int(args[1]) * 1024 * 1024  # Convert MB to bytes
+        except ValueError:
+            await message.reply_text(
+                "Invalid size parameter. Please provide an integer value in MB."
+            )
+            return
 
-    file_name_message = await client.ask(
-        chat_id=message.from_user.id,
-        text="Send me the new filename for this task or send /cancel to stop.",
-        filters=filters.text,
-    )
+    # Ask for the new filename
+    try:
+        file_name_message = await client.ask(
+            chat_id=message.from_user.id,
+            text="Send me the new filename for this task or send /cancel to stop.",
+            filters=filters.text,
+            timeout=60,
+        )
+    except asyncio.TimeoutError:
+        await message.reply_text("No response received. Operation cancelled.")
+        return
+
     await file_name_message.request.delete()
     new_file_name = file_name_message.text
     if new_file_name.lower() == "/cancel":
         await message.delete()
         return
 
-    password_message = await client.ask(
-        chat_id=message.from_user.id,
-        text="Send me the password 🔒 for this task or send **NO** if you don't want.",
-        filters=filters.text,
-    )
+    # Ask for the password
+    try:
+        password_message = await client.ask(
+            chat_id=message.from_user.id,
+            text="Send me the password 🔒 for this task or send **NO** if you don't want.",
+            filters=filters.text,
+            timeout=60,
+        )
+    except asyncio.TimeoutError:
+        await message.reply_text("No response received. Operation cancelled.")
+        return
+
     await password_message.request.delete()
     password = password_message.text
 
@@ -357,14 +401,14 @@ async def compress(client, message):
     for message_id in list(users_list[user_id].keys()):
         message_obj: Message = await client.get_messages(user_id, message_id)
         filename = users_list[user_id][message_id]["filename"]
-        await download_file(message_obj, dirpath, progress_download, filename)
+        await download_file(message_obj, user_dir, progress_download, filename)
         users_list[user_id].pop(message_id)
     await progress_download.delete()
     await message.reply_text(
         f"Downloads finished in 📥 {humanize.naturaldelta(dt.datetime.now() - inicial)}."
     )
     await message.reply_text("Compression started 🗜")
-    parts_path = zip_files(dirpath, size, new_file_name, password)
+    parts_path = zip_files(user_dir, size, new_file_name, password)
     await message.reply_text("Compression finished 🗜")
     progress_upload = await message.reply_text("Uploading 📤...")
     inicial = dt.datetime.now()
@@ -473,8 +517,9 @@ async def generate_link(client, message):
         return
 
     user_id = message.from_user.id
-    dirpath = pathlib.Path(f"{user_id}/files")
-    dirpath.mkdir(parents=True, exist_ok=True)
+    # Define the directory within SERVE_DIRECTORY for the user
+    user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+    user_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine the filename
     if isinstance(media, pyrogram.types.Photo):
@@ -485,7 +530,7 @@ async def generate_link(client, message):
             or f"{media.file_unique_id}{mimetypes.guess_extension(media.mime_type) or ''}"
         )
 
-    filepath = dirpath / filename
+    filepath = user_dir / filename
 
     # Check if the file already exists
     if not filepath.exists():
@@ -507,7 +552,8 @@ async def generate_link(client, message):
             return
 
     # Generate the link
-    file_url = f"{PUBLIC_URL}/{filepath.as_posix()}"
+    relative_path = filepath.relative_to(SERVE_DIRECTORY)
+    file_url = f"{PUBLIC_URL}:{PORT}/{relative_path.as_posix()}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 
