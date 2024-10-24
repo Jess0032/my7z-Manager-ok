@@ -553,7 +553,7 @@ async def generate_link(client, message):
 
     # Generate the link
     relative_path = filepath.relative_to(SERVE_DIRECTORY)
-    file_url = f"{PUBLIC_URL}:{PORT}/{relative_path.as_posix()}"
+    file_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 
