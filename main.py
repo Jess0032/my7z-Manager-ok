@@ -31,7 +31,7 @@ API_HASH: str = os.environ.get("API_HASH")
 BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
-PORT: int = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
+PORT: int = int(os.environ.get("PORT"))  # Default to 8000 if PORT not set
 
 # Define the directory to serve files from
 SERVE_DIRECTORY = pathlib.Path("public").absolute()
