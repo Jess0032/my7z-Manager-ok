@@ -38,7 +38,7 @@ users_in_channel: Dict[int, dt.datetime] = dict()
 
 # Start HTTP server for /link command
 def start_http_server():
-    server_address = ("", 80)  # Listen on all interfaces, port 80
+    server_address = ("", 8000)  # Listen on all interfaces, port 8000
     httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
     httpd.serve_forever()
 
