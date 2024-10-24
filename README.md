@@ -10,9 +10,9 @@ start - Fast help of Bot 😎
 list - list of files to merge / compress
 compress - compress files (optional specify part size in MB)
 download - download direct links and add to List
+link - get direct link by reply to a file on tg
 rename - rename files from list by number id
 clear - Clear the file list
-merge - Merge files (txt and pdf for now)
 cache_folder - show folder cache
 clear_cache_folder - clear folder cache
 
