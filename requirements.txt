@@ -7,4 +7,4 @@ humanize~=4.2.0
 pypdl~=1.4.4
 aiohttp~=3.11.0
 python-dotenv~=1.0.1
-
+python-dotenv~=1.0.1
