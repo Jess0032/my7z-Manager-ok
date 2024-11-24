@@ -15,6 +15,7 @@ rename - rename files from list by number id
 clear - Clear the file list
 cache_folder - show folder cache
 clear_cache_folder - clear folder cache
+full_clear - admin only
 
 ```
 
