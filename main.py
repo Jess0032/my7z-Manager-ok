@@ -34,6 +34,7 @@ load_dotenv()
 API_ID: int = int(os.environ.get("API_ID"))
 API_HASH: str = os.environ.get("API_HASH")
 BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
+ADMIN_ID: int = int(os.environ.get("ADMIN_ID"))
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
 PORT: int = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
@@ -56,6 +57,7 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
         range_header = self.headers.get('Range', None)
 
         if range_header:
+
             # Parse the range header
             match = re.search(r'bytes=(\d+)-(\d+)?', range_header)
 
@@ -205,7 +207,6 @@ async def clear_list(client, message):
     users_list[message.from_user.id] = {}
     await message.reply_text("📝 List cleared.")
 
-
 @bot.on_message(filters.command("cache_folder"))
 async def show_cache_folder(client, message):
     dirpath = pathlib.Path(f"{message.from_user.id}/")
@@ -231,6 +232,26 @@ async def clear_cache_folder(client, message):
     else:
         await message.reply_text(f"Your temporary folder is empty.")
 
+@bot.on_message(filters.command("full_clear") & filters.user(ADMIN_ID))
+async def full_clear(client, message):
+    if len(os.listdir(SERVE_DIRECTORY)) == 0:
+        await message.reply_text(
+            "Directory is empty, nothing to do!"
+        )
+    else:
+        size = sum(file.stat().st_size for file in SERVE_DIRECTORY.rglob("*.*"))
+
+        for filename in os.listdir(SERVE_DIRECTORY):
+            file_path = os.path.join(SERVE_DIRECTORY, filename)  
+
+            if os.path.isfile(file_path):
+                os.remove(file_path)   # Delete files
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)  # Recursively delete subdirectories
+
+        await message.reply_text(
+            f"Successfully deleted every file. Freed up {naturalsize(size)}."
+        )
 
 @bot.on_message(filters.command("rename"))
 async def rename_file(client, message):
