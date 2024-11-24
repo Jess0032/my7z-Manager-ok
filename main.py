@@ -85,7 +85,14 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
                 # Serve the requested range
                 with open(target_path, 'rb') as f:
                     f.seek(start)
-                    self.wfile.write(f.read(end - start + 1))
+                    try:
+                        self.wfile.write(f.read(end - start + 1))
+                    except BrokenPipeError:
+                        # Log the error or perform any necessary cleanup
+                        print("Client disconnected prematurely")
+                    except Exception as e:
+                        # Handle other exceptions
+                        print(f"An error occurred: {str(e)}")
 
                 return
 
