@@ -17,7 +17,6 @@ cache_folder - show folder cache
 clear_cache_folder - clear a user's folder cache
 full_clear - clear EVERY user's folder cache, must be executed by an admin
 clear_cache_folder - clear folder cache
-full_clear - admin only
 
 ```
 
@@ -29,7 +28,6 @@ API_ID - Get this value from https://my.telegram.org/apps
 API_HASH - Get this value from https://my.telegram.org/apps 
 ADMIN_ID - Telegram ID of the bot's admin
 API_HASH - Get this value from https://my.telegram.org/apps
-ADMIN_ID - Id of owner 
 MESSAGE_CHANNEL_ID - id of telegram channel add bot admin in this channel
 CHANNEL - link of public channel without https://t.me/
 PUBLIC_URL - Url or ip where is hosted the Bot.
