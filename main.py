@@ -324,14 +324,17 @@ async def rename_file(client, message):
 @bot.on_message(filters.command("download"))
 async def download_from_url(client, message):
     user_id = message.from_user.id
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.reply_text(
-            "Please provide a URL to download.\nUsage: `/download <URL>`"
-        )
-        return
+    if message.reply_to_message:
+        url = str(message.reply_to_message.text)
+    else:
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply_text(
+                "Please provide a URL to download.\nUsage: `/download <URL>`"
+            )
+            return
 
-    url = args[1].strip()
+        url = args[1].strip()
 
     # Validate URL
     if not url.startswith(("http://", "https://")):
@@ -564,7 +567,9 @@ async def start():
 @bot.on_message(filters.command("link"))
 async def generate_link(client, message):
     if not message.reply_to_message:
-        await message.reply_text("Please reply to a file to generate a link.")
+        user_id = message.from_user.id
+        text_to_send = SERVE_DIRECTORY / str(user_id) / "files"
+        await message.reply_text(text_to_send)
         return
 
     replied_message = message.reply_to_message
