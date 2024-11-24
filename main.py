@@ -568,8 +568,11 @@ async def start():
 async def generate_link(client, message):
     if not message.reply_to_message:
         user_id = message.from_user.id
-        text_to_send = SERVE_DIRECTORY / str(user_id) / "files"
-        await message.reply_text(text_to_send)
+        user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+        user_dir.mkdir(parents=True, exist_ok=True)
+        relative_path = user_dir.relative_to(SERVE_DIRECTORY)
+        dir_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
+        await message.reply_text(dir_url)
         return
 
     replied_message = message.reply_to_message
