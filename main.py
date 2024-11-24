@@ -590,7 +590,7 @@ async def generate_link(client, message):
 
     user_id = message.from_user.id
     # Define the directory within SERVE_DIRECTORY for the user
-    user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+    user_dir = PUBLIC_URL/SERVE_DIRECTORY / str(user_id) / "files"
     user_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine the filename
