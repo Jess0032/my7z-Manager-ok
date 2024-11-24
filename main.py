@@ -87,11 +87,11 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
                     f.seek(start)
                     try:
                         self.wfile.write(f.read(end - start + 1))
+                    
                     except BrokenPipeError:
-                        # Log the error or perform any necessary cleanup
                         print("Client disconnected prematurely")
+                    
                     except Exception as e:
-                        # Handle other exceptions
                         print(f"An error occurred: {str(e)}")
 
                 return
