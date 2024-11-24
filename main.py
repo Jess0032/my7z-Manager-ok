@@ -10,6 +10,7 @@ import socket
 import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+import socketserver
 from typing import Dict
 from urllib.parse import unquote, urlparse
 
@@ -105,8 +106,9 @@ def start_http_server():
     # Create a handler that serves files from the SERVE_DIRECTORY
     handler_class = functools.partial(RangeHTTPRequestHandler, directory=str(SERVE_DIRECTORY))
 
-    httpd = HTTPServer(server_address, handler_class)
-    httpd.serve_forever()
+    with socketserver.ThreadingTCPServer(("", PORT), handler_class) as httpd:
+        print(f"Serving HTTP on port {PORT}")
+        httpd.serve_forever()
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
