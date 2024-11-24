@@ -13,6 +13,9 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict
 from urllib.parse import unquote, urlparse
 
+import re
+from dotenv import load_dotenv
+
 import aiohttp  # Import aiohttp for HTTP requests
 import humanize
 import pyrogram.errors
@@ -24,6 +27,8 @@ from pyromod import listen
 from functions import (  # Ensure you have a 'functions.py' with 'zip_files' implemented
     zip_files,
 )
+
+load_dotenv()
 
 # Replace with your actual API credentials
 API_ID: int = int(os.environ.get("API_ID"))
@@ -43,24 +48,56 @@ users_list = {}  # user_id: {message_id: {'mime_type': ..., 'filename': ...}}
 empty_list = "📝 Still no files to compress."
 users_in_channel: Dict[int, dt.datetime] = dict()
 
+class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
+
+    def do_GET(self):
+
+        # Check if the request has a Range header
+        range_header = self.headers.get('Range', None)
+
+        if range_header:
+            # Parse the range header
+            match = re.search(r'bytes=(\d+)-(\d+)?', range_header)
+
+            if match:
+                target_path = str(SERVE_DIRECTORY) + unquote(self.path)
+                file_size = os.path.getsize(target_path)
+                start = int(match.group(1))
+                end = int(match.group(2)) if match.group(2) is not None else file_size - 1
+
+                if start >= file_size or (end is not None and start > end):
+                    # Invalid range
+                    self.send_response(416)  # Range Not Satisfiable
+                    self.send_header('Content-Range', f'bytes */{file_size}')
+                    self.end_headers()
+                    return
+
+                # Read the file
+                self.send_response(206)  # Partial content
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
+                self.send_header('Content-Length', str(end - start + 1))
+                self.send_header('Accept-Ranges', 'bytes')
+                self.end_headers()
+
+                # Serve the requested range
+                with open(target_path, 'rb') as f:
+                    f.seek(start)
+                    self.wfile.write(f.read(end - start + 1))
+
+                return
+
+        # Fallback to the default behavior for non-range requests
+        super().do_GET()
 
 def start_http_server():
     server_address = ("", PORT)  # Listen on all interfaces, specified PORT
 
     # Create a handler that serves files from the SERVE_DIRECTORY
-    handler_class = functools.partial(
-        SimpleHTTPRequestHandler, directory=str(SERVE_DIRECTORY)
-    )
+    handler_class = functools.partial(RangeHTTPRequestHandler, directory=str(SERVE_DIRECTORY))
 
     httpd = HTTPServer(server_address, handler_class)
     httpd.serve_forever()
-
-
-# Start the HTTP server in a separate thread
-http_thread = threading.Thread(target=start_http_server)
-http_thread.daemon = True
-http_thread.start()
-
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -558,6 +595,11 @@ async def generate_link(client, message):
 
 
 if __name__ == "__main__":
+    # Start the HTTP server in a separate thread
+    http_thread = threading.Thread(target=start_http_server)
+    http_thread.daemon = True
+    http_thread.start()
+
     bot.start()
     asyncio.get_event_loop().run_until_complete(start())
     idle()
