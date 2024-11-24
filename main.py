@@ -12,7 +12,7 @@ import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socketserver
 from typing import Dict
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 import re
 from dotenv import load_dotenv
@@ -218,7 +218,7 @@ async def clear_list(client, message):
 
 @bot.on_message(filters.command("cache_folder"))
 async def show_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{message.from_user.id}/")
+    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
     text = "📝 Temporary file list:\n"
     if dirpath.exists():
         for i, file in enumerate(sorted(dirpath.rglob("*.*"))):
@@ -231,7 +231,7 @@ async def show_cache_folder(client, message):
 
 @bot.on_message(filters.command("clear_cache_folder"))
 async def clear_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{message.from_user.id}/")
+    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
     if dirpath.exists():
         size = sum(file.stat().st_size for file in dirpath.rglob("*.*"))
         shutil.rmtree(str(dirpath.absolute()))
@@ -620,7 +620,7 @@ async def generate_link(client, message):
 
     # Generate the link
     relative_path = filepath.relative_to(SERVE_DIRECTORY)
-    file_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
+    file_url = f"{PUBLIC_URL}/{quote(relative_path.as_posix())}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 
