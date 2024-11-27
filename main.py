@@ -344,7 +344,7 @@ async def download_from_url(client, message):
         await message.reply_text("Invalid URL provided.")
         return
 
-    # Define the directory within USERS_DIRECTORY for the user
+    # Define the directory for the user
     #user_dir = USERS_DIRECTORY / str(user_id) / "files"
     user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
@@ -573,10 +573,9 @@ async def start():
 async def generate_link(client, message):
     if not message.reply_to_message:
         user_id = message.from_user.id
-        #user_dir = USERS_DIRECTORY / str(user_id) / "files"
         user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
         user_dir.mkdir(parents=True, exist_ok=True)
-        relative_path = user_dir.relative_to(USERS_DIRECTORY)
+        relative_path = user_dir.relative_to(SERVE_DIRECTORY_DIRECTORY)
         dir_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
         await message.reply_text(dir_url)
         return
@@ -598,12 +597,10 @@ async def generate_link(client, message):
         return
 
     user_id = message.from_user.id
-    # Define the directory within SERVE_DIRECTORY for the user
-    # THINKKKKKKKKKKKKKK!
-
-
+    # Define the directory for the user
 
     # user_dir = PUBLIC_URL/SERVE_DIRECTORY / str(user_id) / "files"
+    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine the filename
