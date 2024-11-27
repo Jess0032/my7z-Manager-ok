@@ -7,12 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Install pip requirements
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt
-
+# Establish WORKDIR
 WORKDIR /app
-COPY . /app
 
-# During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
+# Copy everything to WORKDIR
+COPY . .
+
+# Setup python dependencies and NGINX
+RUN apt install -yy nginx; python -m pip install --no-cache-dir -r requirements.txt
+
+# Run main script
 CMD ["bash", "start.sh"]
