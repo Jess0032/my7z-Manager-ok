@@ -9,7 +9,7 @@ import shutil
 import socket
 import threading
 import time
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+# from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socketserver
 from typing import Dict
 from urllib.parse import quote, unquote, urlparse
@@ -41,8 +41,12 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
 PORT: int = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
 
 # Define the directory to serve files from
+PUBLIC_BASEPATH="botfiles"
 SERVE_DIRECTORY = pathlib.Path("public").absolute()
 SERVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
+USERS_DIRECTORY=SERVE_DIRECTORY.joinpath(PUBLIC_BASEPATH)
+USERS_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
 
 bot = Client("my_bot", api_hash=API_HASH, api_id=API_ID, bot_token=BOT_TOKEN)
 
@@ -50,82 +54,80 @@ users_list = {}  # user_id: {message_id: {'mime_type': ..., 'filename': ...}}
 empty_list = "📝 Still no files to compress."
 users_in_channel: Dict[int, dt.datetime] = dict()
 
-class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
+#class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
+#
+#    def do_GET(self):
+#
+#        # Check if the request has a Range header
+#        range_header = self.headers.get('Range', None)
+#
+#        if range_header:
+#
+#            # Parse the range header
+#            match = re.search(r'bytes=(\d+)-(\d+)?', range_header)
+#
+#            if match:
+#                target_path = str(SERVE_DIRECTORY) + unquote(self.path)
+#                file_size = os.path.getsize(target_path)
+#                start = int(match.group(1))
+#                end = int(match.group(2)) if match.group(2) is not None else file_size - 1
+#
+#                if start >= file_size or (end is not None and start > end):
+#                    # Invalid range
+#                    self.send_response(416)  # Range Not Satisfiable
+#                    self.send_header('Content-Range', f'bytes */{file_size}')
+#                    self.end_headers()
+#                    return
+#
+#                # Read the file
+#                self.send_response(206)  # Partial content
+#                self.send_header('Content-Type', 'application/octet-stream')
+#                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
+#                self.send_header('Content-Length', str(end - start + 1))
+#                self.send_header('Accept-Ranges', 'bytes')
+#                self.end_headers()
+#
+#                # Serve the requested range
+#                with open(target_path, 'rb') as f:
+#                    f.seek(start)
+#                    try:
+#                        self.wfile.write(f.read(end - start + 1))
+#                    
+#                    except BrokenPipeError:
+#                        print("Client disconnected prematurely")
+#                    
+#                    except Exception as e:
+#                        print(f"An error occurred: {str(e)}")
+#
+#                return
+#
+#        # Fallback to the default behavior for non-range requests
+#        super().do_GET()
 
-    def do_GET(self):
+#def start_http_server():
+#    server_address = ("", PORT)  # Listen on all interfaces, specified PORT
+#
+#    # Create a handler that serves files from the SERVE_DIRECTORY
+#    handler_class = functools.partial(RangeHTTPRequestHandler, directory=str(SERVE_DIRECTORY))
+#
+#    with socketserver.ThreadingTCPServer(("", PORT), handler_class) as httpd:
+#        print(f"Serving HTTP on port {PORT}")
+#        httpd.serve_forever()
 
-        # Check if the request has a Range header
-        range_header = self.headers.get('Range', None)
-
-        if range_header:
-
-            # Parse the range header
-            match = re.search(r'bytes=(\d+)-(\d+)?', range_header)
-
-            if match:
-                target_path = str(SERVE_DIRECTORY) + unquote(self.path)
-                file_size = os.path.getsize(target_path)
-                start = int(match.group(1))
-                end = int(match.group(2)) if match.group(2) is not None else file_size - 1
-
-                if start >= file_size or (end is not None and start > end):
-                    # Invalid range
-                    self.send_response(416)  # Range Not Satisfiable
-                    self.send_header('Content-Range', f'bytes */{file_size}')
-                    self.end_headers()
-                    return
-
-                # Read the file
-                self.send_response(206)  # Partial content
-                self.send_header('Content-Type', 'application/octet-stream')
-                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
-                self.send_header('Content-Length', str(end - start + 1))
-                self.send_header('Accept-Ranges', 'bytes')
-                self.end_headers()
-
-                # Serve the requested range
-                with open(target_path, 'rb') as f:
-                    f.seek(start)
-                    try:
-                        self.wfile.write(f.read(end - start + 1))
-                    
-                    except BrokenPipeError:
-                        print("Client disconnected prematurely")
-                    
-                    except Exception as e:
-                        print(f"An error occurred: {str(e)}")
-
-                return
-
-        # Fallback to the default behavior for non-range requests
-        super().do_GET()
-
-def start_http_server():
-    server_address = ("", PORT)  # Listen on all interfaces, specified PORT
-
-    # Create a handler that serves files from the SERVE_DIRECTORY
-    handler_class = functools.partial(RangeHTTPRequestHandler, directory=str(SERVE_DIRECTORY))
-
-    with socketserver.ThreadingTCPServer(("", PORT), handler_class) as httpd:
-        print(f"Serving HTTP on port {PORT}")
-        httpd.serve_forever()
-
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # Doesn't have to be reachable
-        s.connect(("8.8.8.8", 80))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = "localhost"
-    finally:
-        s.close()
-    return IP
-
+#def get_local_ip():
+#    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#    try:
+#        # Doesn't have to be reachable
+#        s.connect(("8.8.8.8", 80))
+#        IP = s.getsockname()[0]
+#    except Exception:
+#        IP = "localhost"
+#    finally:
+#        s.close()
+#    return IP
 
 def is_empty(user_id: str):
     return user_id not in users_list or not users_list[user_id]
-
 
 @bot.on_message(filters=~(filters.private & filters.incoming))
 async def on_chat_or_channel_message(client: Client, message: Message):
@@ -218,7 +220,8 @@ async def clear_list(client, message):
 
 @bot.on_message(filters.command("cache_folder"))
 async def show_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
+    #dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
+    dirpath = pathlib.Path(f"{USERS_DIRECTORY}/{message.from_user.id}/")
     text = "📝 Temporary file list:\n"
     if dirpath.exists():
         for i, file in enumerate(sorted(dirpath.rglob("*.*"))):
@@ -231,7 +234,7 @@ async def show_cache_folder(client, message):
 
 @bot.on_message(filters.command("clear_cache_folder"))
 async def clear_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
+    dirpath = pathlib.Path(f"{USERS_DIRECTORY}/{message.from_user.id}/")
     if dirpath.exists():
         size = sum(file.stat().st_size for file in dirpath.rglob("*.*"))
         shutil.rmtree(str(dirpath.absolute()))
@@ -243,15 +246,15 @@ async def clear_cache_folder(client, message):
 
 @bot.on_message(filters.command("full_clear") & filters.user(ADMIN_ID))
 async def full_clear(client, message):
-    if len(os.listdir(SERVE_DIRECTORY)) == 0:
+    if len(os.listdir(USERS_DIRECTORY)) == 0:
         await message.reply_text(
             "Directory is empty, nothing to do!"
         )
     else:
-        size = sum(file.stat().st_size for file in SERVE_DIRECTORY.rglob("*.*"))
+        size = sum(file.stat().st_size for file in USERS_DIRECTORY.rglob("*.*"))
 
-        for filename in os.listdir(SERVE_DIRECTORY):
-            file_path = os.path.join(SERVE_DIRECTORY, filename)  
+        for filename in os.listdir(USERS_DIRECTORY):
+            file_path = os.path.join(USERS_DIRECTORY, filename)  
 
             if os.path.isfile(file_path):
                 os.remove(file_path)   # Delete files
@@ -341,8 +344,9 @@ async def download_from_url(client, message):
         await message.reply_text("Invalid URL provided.")
         return
 
-    # Define the directory within SERVE_DIRECTORY for the user
-    user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+    # Define the directory for the user
+    #user_dir = USERS_DIRECTORY / str(user_id) / "files"
+    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
 
     progress_message = await message.reply_text("Starting download...")
@@ -416,7 +420,8 @@ async def compress(client, message):
     if is_empty(user_id):
         await message.reply_text(empty_list)
         return
-    user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+    #user_dir = USERS_DIRECTORY / str(user_id) / "files"
+    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
     size = None
     args = message.text.strip().split()
@@ -568,9 +573,9 @@ async def start():
 async def generate_link(client, message):
     if not message.reply_to_message:
         user_id = message.from_user.id
-        user_dir = SERVE_DIRECTORY / str(user_id) / "files"
+        user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
         user_dir.mkdir(parents=True, exist_ok=True)
-        relative_path = user_dir.relative_to(SERVE_DIRECTORY)
+        relative_path = user_dir.relative_to(SERVE_DIRECTORY_DIRECTORY)
         dir_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
         await message.reply_text(dir_url)
         return
@@ -592,8 +597,10 @@ async def generate_link(client, message):
         return
 
     user_id = message.from_user.id
-    # Define the directory within SERVE_DIRECTORY for the user
-    user_dir = PUBLIC_URL/SERVE_DIRECTORY / str(user_id) / "files"
+    # Define the directory for the user
+
+    # user_dir = PUBLIC_URL/SERVE_DIRECTORY / str(user_id) / "files"
+    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine the filename
@@ -633,10 +640,12 @@ async def generate_link(client, message):
 
 
 if __name__ == "__main__":
+
+    # NGINX will take care of this
     # Start the HTTP server in a separate thread
-    http_thread = threading.Thread(target=start_http_server)
-    http_thread.daemon = True
-    http_thread.start()
+    #http_thread = threading.Thread(target=start_http_server)
+    #http_thread.daemon = True
+    #http_thread.start()
 
     bot.start()
     asyncio.get_event_loop().run_until_complete(start())
