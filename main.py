@@ -54,78 +54,6 @@ users_list = {}  # user_id: {message_id: {'mime_type': ..., 'filename': ...}}
 empty_list = "📝 Still no files to compress."
 users_in_channel: Dict[int, dt.datetime] = dict()
 
-#class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
-#
-#    def do_GET(self):
-#
-#        # Check if the request has a Range header
-#        range_header = self.headers.get('Range', None)
-#
-#        if range_header:
-#
-#            # Parse the range header
-#            match = re.search(r'bytes=(\d+)-(\d+)?', range_header)
-#
-#            if match:
-#                target_path = str(SERVE_DIRECTORY) + unquote(self.path)
-#                file_size = os.path.getsize(target_path)
-#                start = int(match.group(1))
-#                end = int(match.group(2)) if match.group(2) is not None else file_size - 1
-#
-#                if start >= file_size or (end is not None and start > end):
-#                    # Invalid range
-#                    self.send_response(416)  # Range Not Satisfiable
-#                    self.send_header('Content-Range', f'bytes */{file_size}')
-#                    self.end_headers()
-#                    return
-#
-#                # Read the file
-#                self.send_response(206)  # Partial content
-#                self.send_header('Content-Type', 'application/octet-stream')
-#                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
-#                self.send_header('Content-Length', str(end - start + 1))
-#                self.send_header('Accept-Ranges', 'bytes')
-#                self.end_headers()
-#
-#                # Serve the requested range
-#                with open(target_path, 'rb') as f:
-#                    f.seek(start)
-#                    try:
-#                        self.wfile.write(f.read(end - start + 1))
-#                    
-#                    except BrokenPipeError:
-#                        print("Client disconnected prematurely")
-#                    
-#                    except Exception as e:
-#                        print(f"An error occurred: {str(e)}")
-#
-#                return
-#
-#        # Fallback to the default behavior for non-range requests
-#        super().do_GET()
-
-#def start_http_server():
-#    server_address = ("", PORT)  # Listen on all interfaces, specified PORT
-#
-#    # Create a handler that serves files from the SERVE_DIRECTORY
-#    handler_class = functools.partial(RangeHTTPRequestHandler, directory=str(SERVE_DIRECTORY))
-#
-#    with socketserver.ThreadingTCPServer(("", PORT), handler_class) as httpd:
-#        print(f"Serving HTTP on port {PORT}")
-#        httpd.serve_forever()
-
-#def get_local_ip():
-#    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#    try:
-#        # Doesn't have to be reachable
-#        s.connect(("8.8.8.8", 80))
-#        IP = s.getsockname()[0]
-#    except Exception:
-#        IP = "localhost"
-#    finally:
-#        s.close()
-#    return IP
-
 def is_empty(user_id: str):
     return user_id not in users_list or not users_list[user_id]
 
@@ -638,14 +566,7 @@ async def generate_link(client, message):
     file_url = f"{PUBLIC_URL}/{quote(relative_path.as_posix())}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
-
 if __name__ == "__main__":
-
-    # NGINX will take care of this
-    # Start the HTTP server in a separate thread
-    #http_thread = threading.Thread(target=start_http_server)
-    #http_thread.daemon = True
-    #http_thread.start()
 
     bot.start()
     asyncio.get_event_loop().run_until_complete(start())

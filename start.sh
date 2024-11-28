@@ -10,15 +10,9 @@ mv -v index.html public/index.html;
 mv -v /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak;
 mv nginx.conf -v /etc/nginx/nginx.conf;
 
-echo "THE PORT IS $PORT"
-
 # 3) Inyect the PORT environment variable and run the NGINX service
-sed -i "s/listen PORT_NUMBER_GOES_HERE/listen $PORT" /etc/nginx/nginx.conf;
+sed -i "s/listen PORT_NUMBER_GOES_HERE;/listen $PORT;/" "/etc/nginx/nginx.conf";
 /etc/init.d/nginx start;
-
-echo "Files {"
-find /app/
-echo "}"
 
 # 4) Run the bot
 python3 -m main;
