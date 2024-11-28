@@ -503,7 +503,7 @@ async def generate_link(client, message):
         user_id = message.from_user.id
         user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
         user_dir.mkdir(parents=True, exist_ok=True)
-        relative_path = user_dir.relative_to(SERVE_DIRECTORY_DIRECTORY)
+        relative_path = user_dir.relative_to(SERVE_DIRECTORY)
         dir_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
         await message.reply_text(dir_url)
         return
