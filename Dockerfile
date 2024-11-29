@@ -18,7 +18,7 @@ WORKDIR /app
 COPY . .
 
 # Setup python dependencies
-RUN apt install -yy wget; python -m pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir -r requirements.txt
 
 # Run main script
 CMD ["bash", "start.sh"]
