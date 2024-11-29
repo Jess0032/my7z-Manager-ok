@@ -17,8 +17,8 @@ WORKDIR /app
 # Copy everything to WORKDIR
 COPY . .
 
-# Setup python dependencies and NGINX
-RUN apt install -yy nginx; python -m pip install --no-cache-dir -r requirements.txt
+# Setup python dependencies
+RUN apt install -yy wget; python -m pip install --no-cache-dir -r requirements.txt
 
 # Run main script
 CMD ["bash", "start.sh"]

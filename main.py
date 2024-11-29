@@ -41,11 +41,11 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
 PORT: int = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
 
 # Define the directory to serve files from
-PUBLIC_BASEPATH="botfiles"
+#PUBLIC_BASEPATH="botfiles"
 SERVE_DIRECTORY = pathlib.Path("public").absolute()
 SERVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
-USERS_DIRECTORY=SERVE_DIRECTORY.joinpath(PUBLIC_BASEPATH)
-USERS_DIRECTORY.mkdir(parents=True, exist_ok=True)
+#USERS_DIRECTORY=SERVE_DIRECTORY.joinpath(PUBLIC_BASEPATH)
+#USERS_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 
 bot = Client("my_bot", api_hash=API_HASH, api_id=API_ID, bot_token=BOT_TOKEN)
@@ -148,8 +148,8 @@ async def clear_list(client, message):
 
 @bot.on_message(filters.command("cache_folder"))
 async def show_cache_folder(client, message):
-    #dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
-    dirpath = pathlib.Path(f"{USERS_DIRECTORY}/{message.from_user.id}/")
+    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
+    #dirpath = pathlib.Path(f"{USERS_DIRECTORY}/{message.from_user.id}/")
     text = "📝 Temporary file list:\n"
     if dirpath.exists():
         for i, file in enumerate(sorted(dirpath.rglob("*.*"))):
@@ -162,7 +162,7 @@ async def show_cache_folder(client, message):
 
 @bot.on_message(filters.command("clear_cache_folder"))
 async def clear_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{USERS_DIRECTORY}/{message.from_user.id}/")
+    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
     if dirpath.exists():
         size = sum(file.stat().st_size for file in dirpath.rglob("*.*"))
         shutil.rmtree(str(dirpath.absolute()))
@@ -174,15 +174,15 @@ async def clear_cache_folder(client, message):
 
 @bot.on_message(filters.command("full_clear") & filters.user(ADMIN_ID))
 async def full_clear(client, message):
-    if len(os.listdir(USERS_DIRECTORY)) == 0:
+    if len(os.listdir(SERVE_DIRECTORY)) == 0:
         await message.reply_text(
             "Directory is empty, nothing to do!"
         )
     else:
-        size = sum(file.stat().st_size for file in USERS_DIRECTORY.rglob("*.*"))
+        size = sum(file.stat().st_size for file in SERVE_DIRECTORY.rglob("*.*"))
 
-        for filename in os.listdir(USERS_DIRECTORY):
-            file_path = os.path.join(USERS_DIRECTORY, filename)  
+        for filename in os.listdir(SERVE_DIRECTORY):
+            file_path = os.path.join(SERVE_DIRECTORY, filename)  
 
             if os.path.isfile(file_path):
                 os.remove(file_path)   # Delete files
@@ -274,7 +274,7 @@ async def download_from_url(client, message):
 
     # Define the directory for the user
     #user_dir = USERS_DIRECTORY / str(user_id) / "files"
-    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
+    user_dir = SERVE_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
 
     progress_message = await message.reply_text("Starting download...")
@@ -349,7 +349,7 @@ async def compress(client, message):
         await message.reply_text(empty_list)
         return
     #user_dir = USERS_DIRECTORY / str(user_id) / "files"
-    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
+    user_dir = SERVE_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
     size = None
     args = message.text.strip().split()
@@ -501,10 +501,10 @@ async def start():
 async def generate_link(client, message):
     if not message.reply_to_message:
         user_id = message.from_user.id
-        user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
+        user_dir = SERVE_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
         user_dir.mkdir(parents=True, exist_ok=True)
         relative_path = user_dir.relative_to(SERVE_DIRECTORY)
-        dir_url = f"{PUBLIC_URL}/{relative_path.as_posix()}"
+        dir_url = f"{PUBLIC_URL}/info/{relative_path.as_posix()}"
         await message.reply_text(dir_url)
         return
 
@@ -528,7 +528,7 @@ async def generate_link(client, message):
     # Define the directory for the user
 
     # user_dir = PUBLIC_URL/SERVE_DIRECTORY / str(user_id) / "files"
-    user_dir = USERS_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
+    user_dir = SERVE_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine the filename
@@ -563,7 +563,7 @@ async def generate_link(client, message):
 
     # Generate the link
     relative_path = filepath.relative_to(SERVE_DIRECTORY)
-    file_url = f"{PUBLIC_URL}/{quote(relative_path.as_posix())}"
+    file_url = f"{PUBLIC_URL}/info/{quote(relative_path.as_posix())}"
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 if __name__ == "__main__":
