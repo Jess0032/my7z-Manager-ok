@@ -1,20 +1,31 @@
 #!/bin/bash
 
+# HTTP File Server (HFS) URL
+URL_HFS="https://github.com/carlos-a-g-h/asere-hfs/releases/download/2023-08-23/asere-hfs.amd64"
+
+# Path to public dir
+PATH_PUBLIC="/app/public"
+
+# (debug) Show the PORT env var
 echo "WEB SERVER PORT = $PORT"
 
-THE_URL="https://github.com/carlos-a-g-h/asere-hfs/releases/download/2023-08-23/asere-hfs.amd64"
-#wget "$THE_URL" -O asere-hfs
-#curl -o asere-hfs "$THE_URL"
-python3 pull.py asere-hfs "$THE_URL"
+# Download the HFS binary using the pull.py script
+python3 pull.py asere-hfs "$URL_HFS"
+
+# Create public dir
+mkdir -p "$PATH_PUBLIC"
+
+# Give execution permit and run the HFS in background
 chmod +x asere-hfs
-./asere-hfs --port $PORT --master "/app/public" &
+./asere-hfs --port $PORT --master "$PATH_PUBLIC" &
 
-echo "WEB SERVER PID = $(pidof asere-hfs)"
+# (debug) Show the PID of the HFS
+echo "HTTP FILE SERVER PID = $(pidof asere-hfs)"
 
-# debug
+# (debug) Files
 echo "files {"
 find .
 echo "} files"
 
-# 4) Run the bot
+# Run the bot
 python3 -m main;
