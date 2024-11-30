@@ -1,22 +1,21 @@
 # CompressBot
 
-A simple telegram bot that takes a list of files sent by the user and returns them 7zipped or merged.
+A simple telegram bot that takes a list of files sent by the user and returns them 7zipped.
 
 
 ## Commands
 
 ```
 start - Fast help of Bot 😎
-list - list of files to merge / compress
-compress - compress files (optional specify part size in MB)
+list - list of files to compress
+compress - compress files (optional specify part size in MB) ex /compress 500
 download - download direct links and add to List
-link - get direct link by reply to a file on tg or send link without reply a file to get url to your files 
+link - get direct link by reply to a file on tg or send /link without reply a file to get url to your files 
 rename - rename files from list by number id
 clear - Clear the file list
 cache_folder - show folder cache
 clear_cache_folder - clear a user's folder cache
 full_clear - clear EVERY user's folder cache, must be executed by an admin
-clear_cache_folder - clear folder cache
 
 ```
 
