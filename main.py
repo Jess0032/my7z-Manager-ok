@@ -9,7 +9,6 @@ import shutil
 import socket
 import threading
 import time
-# from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socketserver
 from typing import Dict
 from urllib.parse import quote, unquote, urlparse
@@ -17,7 +16,7 @@ from urllib.parse import quote, unquote, urlparse
 import re
 from dotenv import load_dotenv
 
-import aiohttp  # Import aiohttp for HTTP requests
+import aiohttp
 import humanize
 import pyrogram.errors
 from humanize import naturalsize
@@ -25,9 +24,7 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pyromod import listen
 
-from functions import (  # Ensure you have a 'functions.py' with 'zip_files' implemented
-    zip_files,
-)
+from functions import zip_files,_MEGABYTE
 
 load_dotenv()
 
@@ -38,7 +35,6 @@ BOT_TOKEN: str = os.environ.get("BOT_TOKEN")
 ADMIN_ID: int = int(os.environ.get("ADMIN_ID"))
 MESSAGE_CHANNEL_ID: int = int(os.environ.get("MESSAGE_CHANNEL_ID"))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost")
-PORT: int = int(os.environ.get("PORT", 8000))  # Default to 8000 if PORT not set
 
 # Define the directory to serve files from
 #PUBLIC_BASEPATH="botfiles"
@@ -148,8 +144,7 @@ async def clear_list(client, message):
 
 @bot.on_message(filters.command("cache_folder"))
 async def show_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
-    #dirpath = pathlib.Path(f"{USERS_DIRECTORY}/{message.from_user.id}/")
+    dirpath=SERVE_DIRECTORY.joinpath(f"{message.from_user.id}")
     text = "📝 Temporary file list:\n"
     if dirpath.exists():
         for i, file in enumerate(sorted(dirpath.rglob("*.*"))):
@@ -162,7 +157,7 @@ async def show_cache_folder(client, message):
 
 @bot.on_message(filters.command("clear_cache_folder"))
 async def clear_cache_folder(client, message):
-    dirpath = pathlib.Path(f"{SERVE_DIRECTORY}/{message.from_user.id}/")
+    dirpath=SERVE_DIRECTORY.joinpath(f"{message.from_user.id}")
     if dirpath.exists():
         size = sum(file.stat().st_size for file in dirpath.rglob("*.*"))
         shutil.rmtree(str(dirpath.absolute()))
@@ -307,7 +302,7 @@ async def download_from_url(client, message):
                 filepath = user_dir / filename
                 total_size = int(resp.headers.get("content-length", 0))
                 downloaded = 0
-                chunk_size = 1024 * 1024  # 1 MB chunks
+                chunk_size = _MEGABYTE  # 1 MB chunks
                 with open(filepath, "wb") as f:
                     async for chunk in resp.content.iter_chunked(chunk_size):
                         f.write(chunk)
@@ -348,14 +343,14 @@ async def compress(client, message):
     if is_empty(user_id):
         await message.reply_text(empty_list)
         return
-    #user_dir = USERS_DIRECTORY / str(user_id) / "files"
+
     user_dir = SERVE_DIRECTORY.joinpath(f"{user_id}").joinpath("files")
     user_dir.mkdir(parents=True, exist_ok=True)
     size = None
     args = message.text.strip().split()
     if len(args) > 1:
         try:
-            size = int(args[1]) * 1024 * 1024  # Convert MB to bytes
+            size = int(args[1]) * _MEGABYTE  # Convert MB to bytes
         except ValueError:
             await message.reply_text(
                 "Invalid size parameter. Please provide an integer value in MB."
@@ -411,7 +406,11 @@ async def compress(client, message):
         f"Downloads finished in 📥 {humanize.naturaldelta(dt.datetime.now() - inicial)}."
     )
     await message.reply_text("Compression started 🗜")
-    parts_path = zip_files(user_dir, size, new_file_name, password)
+    # NOTE: zip_files is a blocking function that can block the entire application, so it should run under to_thread()
+    parts_path=await asyncio.to_thread(
+        zip_files,user_dir,size,
+        new_file_name,password
+    )
     await message.reply_text("Compression finished 🗜")
     progress_upload = await message.reply_text("Uploading 📤...")
     inicial = dt.datetime.now()
@@ -427,7 +426,7 @@ async def compress(client, message):
 async def download_file(
     message: Message, dirpath: pathlib.Path, progress_message: Message, filename: str
 ):
-    filepath = dirpath / filename
+    filepath = dirpath.joinpath(filename)
     try:
         start_time = time.time()
         await message.download(
@@ -464,13 +463,15 @@ async def progress_bar(current, total, status_msg, start, msg, filename):
             "".join(["⚫" for _ in range(10 - math.floor(percentage / 10))]),
         )
 
-        current_message = f"""**{status_msg} {filename}** {round(percentage, 2)}%
-{progressbar}
+        current_message = (
+            f"""**{status_msg} {filename}** {round(percentage, 2)}%""" "\n"
+            f"{progressbar}" "\n"
+            f"**⚡ Speed**: {humanize.naturalsize(speed)}/s" "\n"
+            f"**📚 Done**: {humanize.naturalsize(current)}" "\n"
+            f"**💾 Size**: {humanize.naturalsize(total)}" "\n"
+            f"**⏰ Time Left**: {time_to_complete}"
+        )
 
-**⚡ Speed**: {humanize.naturalsize(speed)}/s
-**📚 Done**: {humanize.naturalsize(current)}
-**💾 Size**: {humanize.naturalsize(total)}
-**⏰ Time Left**: {time_to_complete}"""
         try:
             await msg.edit_text(current_message)
         except pyrogram.errors.MessageNotModified:
@@ -567,6 +568,9 @@ async def generate_link(client, message):
     await message.reply_text(f"Here is your link:\n{file_url}")
 
 if __name__ == "__main__":
+
+    # W.I.P.
+    # from sys import argv as sys_argv
 
     bot.start()
     asyncio.get_event_loop().run_until_complete(start())
