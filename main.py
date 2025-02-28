@@ -24,7 +24,7 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from pyromod import listen
 
-from functions import zip_files,_MEGABYTE
+from functions import * #zip_files,_MEGABYTE
 
 load_dotenv()
 
